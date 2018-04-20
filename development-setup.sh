@@ -38,7 +38,15 @@ setup_debian() {
   sudo apt-get -q -y -f install $packages
   dzil listdeps --missing | cpanm --notest
 
-  sudo apt-get -q -y -f install doxyparse sloccount
+  sudo apt-get -q -y -f install sloccount git cmake bison flex
+
+  git clone https://github.com/analizo/doxyparse.git
+
+  mkdir doxyparse/build && cd doxyparse/build
+
+  cmake .. -G "Unix Makefiles" -Dbuild_parse=ON
+
+  sudo make install
 }
 
 locate_package() {
