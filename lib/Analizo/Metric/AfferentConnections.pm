@@ -30,13 +30,14 @@ class has substantially more side effects, making maintenance more difficult.
 
 =cut
 
-__PACKAGE__->mk_accessors(qw( model analized_module));
+__PACKAGE__->mk_accessors(qw( model analized_module hashmap));
 
 sub new {
   my ($package, %args) = @_;
    my @instance_variables = (
     model => $args{model},
-    analized_modules => undef
+    analized_modules => undef,
+    hashmap => {}
   );
   return bless { @instance_variables }, $package;
 }
@@ -51,6 +52,11 @@ sub calculate {
 
   my $number_of_caller_modules = $self->_number_of_modules_that_call_module();
   my $number_of_modules_on_inheritance_tree = $self->_recursive_number_of_children($self->analized_module);
+
+
+  foreach my $key (keys %{$self->hashmap} ) {
+      delete $self->hashmap->{$key};
+  }
 
   return $number_of_caller_modules + $number_of_modules_on_inheritance_tree;
 }
@@ -97,11 +103,17 @@ sub _recursive_number_of_children {
 
   my $number_of_children = 0;
 
+  if (defined $self->hashmap->{$module}){
+    return $self->hashmap->{$module};
+  }
+
   for my $other_module ($self->model->module_names){
     if ($self->_module_parent_of_other($module, $other_module)) {
       $number_of_children += $self->_recursive_number_of_children($other_module) + 1;
     }
   }
+
+  $self->hashmap->{$module} = $number_of_children;
 
   return $number_of_children;
 }
