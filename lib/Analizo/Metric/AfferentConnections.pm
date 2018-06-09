@@ -1,5 +1,6 @@
 package Analizo::Metric::AfferentConnections;
 use strict;
+use Graph;
 use parent qw(Class::Accessor::Fast Analizo::ModuleMetric);
 
 =head1 NAME
@@ -30,14 +31,15 @@ class has substantially more side effects, making maintenance more difficult.
 
 =cut
 
-__PACKAGE__->mk_accessors(qw( model analized_module hashmap));
+__PACKAGE__->mk_accessors(qw( model analized_module hashmap graph_modules));
 
 sub new {
   my ($package, %args) = @_;
    my @instance_variables = (
     model => $args{model},
     analized_modules => undef,
-    hashmap => {}
+    hashmap => {},
+    graph_modules => Graph->new()
   );
   return bless { @instance_variables }, $package;
 }
@@ -53,7 +55,6 @@ sub calculate {
   my $number_of_caller_modules = $self->_number_of_modules_that_call_module();
   my $number_of_modules_on_inheritance_tree = $self->_recursive_number_of_children($self->analized_module);
 
-
   foreach my $key (keys %{$self->hashmap} ) {
       delete $self->hashmap->{$key};
   }
@@ -64,21 +65,24 @@ sub calculate {
 sub _number_of_modules_that_call_module {
   my ($self) = @_;
 
-  my @seen_modules = ();
-  for my $caller_member (keys(%{$self->model->calls})){
-    $self->_push_member_module_if_it_calls_analized_module($caller_member, \@seen_modules);
+  if ($self->graph_modules->has_vertex($self->analized_module)){
+    return $self->graph_modules->in_degree($self->analized_module);
+  }else{
+    $self->graph_modules->add_vertex($self->analized_module);
   }
 
-  return scalar @seen_modules;
+  for my $caller_member (keys(%{$self->model->calls})){
+    $self->_push_member_module_if_it_calls_analized_module($caller_member);
+  }
+
+  return $self->graph_modules->in_degree($self->analized_module);
 }
 
 sub _push_member_module_if_it_calls_analized_module {
-  my ($self, $caller_member, $seen_modules) = @_;
+  my ($self, $caller_member) = @_;
 
   my $caller_module = $self->model->members->{$caller_member};
-  if($self->_member_calls_analized_module($caller_member, $caller_module)){
-    push @{$seen_modules}, $caller_module;
-  }
+  $self->_member_calls_analized_module($caller_member, $caller_module)
 }
 
 sub _member_calls_analized_module {
@@ -86,16 +90,10 @@ sub _member_calls_analized_module {
 
   for my $called_member (keys(%{$self->model->calls->{$caller_member}})) {
     my $called_module = $self->model->members->{$called_member};
-    if($self->_called_module_is_the_analized($called_module, $caller_module)) {
-        return 1;
+    if ($caller_module && $called_module && $caller_module ne $called_module){
+      $self->graph_modules->add_edge($caller_module, $called_module);
     }
   }
-  return 0;
-}
-
-sub _called_module_is_the_analized {
-  my ($self, $called_module, $caller_module) = @_;
-  return ($caller_module && $called_module) && $caller_module ne $called_module && $called_module eq $self->analized_module;
 }
 
 sub _recursive_number_of_children {
