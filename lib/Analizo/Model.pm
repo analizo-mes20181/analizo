@@ -221,6 +221,7 @@ sub graph {
     }
   }
 
+  $self->{graph} = $graph;
   $graph;
 }
 
