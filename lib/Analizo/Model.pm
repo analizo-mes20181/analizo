@@ -240,7 +240,6 @@ sub _recursive_children {
 
 sub _function_to_file {
   my ($self, $function) = @_;
-  return unless exists $self->members->{$function};
   my $module = $self->members->{$function};
   $self->{files}->{$module};
 }
