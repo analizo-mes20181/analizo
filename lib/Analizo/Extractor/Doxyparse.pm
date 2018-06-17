@@ -40,6 +40,118 @@ sub _cpp_hack {
   }
 }
 
+sub _extract_definition_data {
+    my ($self, $definition) = @_;
+
+    my ($name) = keys %$definition;
+
+    my $qualified_name = _qualified_name($self->current_module, $name);
+    $self->{current_member} = $qualified_name;
+
+    my $definition_reference = $definition->{$name};
+       
+    # function declarations
+    if ($self->_is_a_funcion($definition_reference)) {
+      $self->model->declare_function($self->current_module, $qualified_name);
+    }
+    # variable declarations
+    elsif ($self->_is_a_variable($definition_reference)) {
+      $self->model->declare_variable($self->current_module, $qualified_name);
+    }
+        
+    #FIXME: Implement define treatment (no novo doxyparse identifica como type = "macro definition")
+    # define declarations
+    elsif ($self->_is_macro($definition_reference)) {
+      #$self->{current_member} = $qualified_name;
+    }
+    # public members
+    if (defined $definition->{$name}->{protection}) {
+      my $protection = $definition->{$name}->{protection};
+      $self->model->add_protection($self->current_member, $protection);
+    }
+
+    # method LOC
+    if ($self->_has_lines_of_code($definition_reference)) {
+      $self->model->add_loc($self->current_member, $definition->{$name}->{lines_of_code});
+    }
+    # method parameters
+    if ($self->_has_parameters($definition_reference)) {
+      $self->model->add_parameters($self->current_member, $definition->{$name}->{parameters});
+    }
+
+    # method conditional paths
+    if ($self->_has_conditional_paths($definition_reference)) {
+      $self->model->add_conditional_paths($self->current_member, $definition->{$name}->{conditional_paths});
+    }
+
+    foreach my $uses (@{ $definition->{$name}->{uses} }) {
+      $self->_extract_references_data($uses);
+    }
+}
+
+sub _extract_references_data {
+  my ($self, $uses) = @_;
+
+  my ($uses_name) = keys %$uses;
+  my $referenced_element_type = $uses->{$uses_name}->{type};
+  my $defined_in = $uses->{$uses_name}->{defined_in};
+  my $qualified_uses_name = _qualified_name($defined_in, $uses_name);
+  # function calls/uses
+  if ($self->_references_function($referenced_element_type)) {
+    $self->model->add_call($self->current_member, $qualified_uses_name, 'direct');
+  }
+  # variable references
+  elsif ($self->_references_a_variable($referenced_element_type)) {
+    $self->model->add_variable_use($self->current_member, $qualified_uses_name);
+  }
+}
+
+sub _extract_module_data {
+  my ($self, $yaml, $full_filename, $module) = @_;
+
+  my $modulename = _file_to_module($module);
+
+  my $module_reference = $yaml->{$full_filename}->{$module};
+
+  next if $self->_is_module_defined($module_reference) && 
+    not $self->_is_module_mapped_as_hash($module_reference);
+  $self->current_module($modulename);
+  $self->_cpp_hack($modulename);
+
+  # inheritance
+  if ($self->_module_has_inheritance($module_reference)) {
+    if ($self->_is_inheritance_multiple($module_reference)) {
+      foreach my $inherits (@{ $yaml->{$full_filename}->{$module}->{inherits} }) {
+        $self->model->add_inheritance($self->current_module, $inherits);
+      }
+    }
+    else {
+      my $inherits = $yaml->{$full_filename}->{$module}->{inherits};
+      $self->model->add_inheritance($self->current_module, $inherits);
+    }
+  }
+
+  # abstract class
+  if (defined $yaml->{$full_filename}->{$module}->{information}) {
+    if ($self->_is_module_an_abstract_class($module_reference)) {
+      $self->model->add_abstract_class($self->current_module);
+    }
+  }
+
+  foreach my $definition (@{$yaml->{$full_filename}->{$module}->{defines}}) {
+      $self->_extract_definition_data($definition);
+  }
+}
+
+sub _extract_file_data {
+  my ($self, $yaml, $full_filename) = @_;
+    
+  # current module declaration
+  foreach my $module (keys %{$yaml->{$full_filename}}) {
+    $self->_extract_module_data($yaml, $full_filename, $module);
+  }
+}
+
 sub feed {
   my ($self, $doxyparse_output, $line) = @_;
   my $yaml = undef;
@@ -54,102 +166,8 @@ sub feed {
     $self->current_file($file);
     $self->_add_file($file);
 
-    # current module declaration
-    foreach my $module (keys %{$yaml->{$full_filename}}) {
-      my $modulename = _file_to_module($module);
+    $self->_extract_file_data($yaml, $full_filename);
 
-      my $module_reference = $yaml->{$full_filename}->{$module};
-
-      next if $self->_is_module_defined($module_reference) && 
-        not $self->_is_module_mapped_as_hash($module_reference);
-
-      $self->current_module($modulename);
-      $self->_cpp_hack($modulename);
-
-      # inheritance
-      if ($self->_module_has_inheritance($module_reference)) {
-        if ($self->_is_inheritance_multiple($module_reference)) {
-          foreach my $inherits (@{ $yaml->{$full_filename}->{$module}->{inherits} }) {
-            $self->model->add_inheritance($self->current_module, $inherits);
-          }
-        }
-        else {
-          my $inherits = $yaml->{$full_filename}->{$module}->{inherits};
-          $self->model->add_inheritance($self->current_module, $inherits);
-        }
-      }
-
-      # abstract class
-      if (defined $yaml->{$full_filename}->{$module}->{information}) {
-        if ($self->_is_module_an_abstract_class($module_reference)) {
-          $self->model->add_abstract_class($self->current_module);
-        }
-      }
-
-      foreach my $definition (@{$yaml->{$full_filename}->{$module}->{defines}}) {
-        my ($name) = keys %$definition;
-
-        my $qualified_name = _qualified_name($self->current_module, $name);
-        $self->{current_member} = $qualified_name;
-
-        my $definition_reference = $definition->{$name};
-        
-        # function declarations
-        if ($self->_is_a_funcion($definition_reference)) {
-          $self->model->declare_function($self->current_module, $qualified_name);
-        }
-        # variable declarations
-        elsif ($self->_is_a_variable($definition_reference)) {
-          $self->model->declare_variable($self->current_module, $qualified_name);
-        }
-        
-        #FIXME: Implement define treatment (no novo doxyparse identifica como type = "macro definition")
-        # define declarations
-        elsif ($self->_is_macro($definition_reference)) {
-          #$self->{current_member} = $qualified_name;
-        }
-
-        # public members
-        if (defined $definition->{$name}->{protection}) {
-          my $protection = $definition->{$name}->{protection};
-          $self->model->add_protection($self->current_member, $protection);
-        }
-
-        # method LOC
-        if ($self->_has_lines_of_code($definition_reference)) {
-          $self->model->add_loc($self->current_member, $definition->{$name}->{lines_of_code});
-        }
-
-        # method parameters
-        if ($self->_has_parameters($definition_reference)) {
-          $self->model->add_parameters($self->current_member, $definition->{$name}->{parameters});
-        }
-
-        # method conditional paths
-        if ($self->_has_conditional_paths($definition_reference)) {
-          $self->model->add_conditional_paths($self->current_member, $definition->{$name}->{conditional_paths});
-        }
-
-        foreach my $uses (@{ $definition->{$name}->{uses} }) {
-          my ($uses_name) = keys %$uses;
-
-          my $referenced_element_type = $uses->{$uses_name}->{type};
-
-          my $defined_in = $uses->{$uses_name}->{defined_in};
-
-          my $qualified_uses_name = _qualified_name($defined_in, $uses_name);
-          # function calls/uses
-          if ($self->_references_function($referenced_element_type)) {
-            $self->model->add_call($self->current_member, $qualified_uses_name, 'direct');
-          }
-          # variable references
-          elsif ($self->_references_a_variable($referenced_element_type)) {
-            $self->model->add_variable_use($self->current_member, $qualified_uses_name);
-          }
-
-        }
-      }
-    }
   }
 }
 
