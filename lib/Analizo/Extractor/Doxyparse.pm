@@ -57,14 +57,18 @@ sub feed {
     # current module declaration
     foreach my $module (keys %{$yaml->{$full_filename}}) {
       my $modulename = _file_to_module($module);
-      next if defined $yaml->{$full_filename}->{$module} && ref($yaml->{$full_filename}->{$module}) ne 'HASH';
+
+      my $module_reference = $yaml->{$full_filename}->{$module};
+
+      next if $self->_is_module_defined($module_reference) && 
+        not $self->_is_module_mapped_as_hash($module_reference);
 
       $self->current_module($modulename);
       $self->_cpp_hack($modulename);
 
       # inheritance
-      if (defined $yaml->{$full_filename}->{$module}->{inherits}) {
-        if (ref $yaml->{$full_filename}->{$module}->{inherits} eq 'ARRAY') {
+      if ($self->_module_has_inheritance($module_reference)) {
+        if ($self->_is_inheritance_multiple($module_reference)) {
           foreach my $inherits (@{ $yaml->{$full_filename}->{$module}->{inherits} }) {
             $self->model->add_inheritance($self->current_module, $inherits);
           }
@@ -77,28 +81,31 @@ sub feed {
 
       # abstract class
       if (defined $yaml->{$full_filename}->{$module}->{information}) {
-        if ($yaml->{$full_filename}->{$module}->{information} eq 'abstract class') {
+        if ($self->_is_module_an_abstract_class($module_reference)) {
           $self->model->add_abstract_class($self->current_module);
         }
       }
 
       foreach my $definition (@{$yaml->{$full_filename}->{$module}->{defines}}) {
         my ($name) = keys %$definition;
-        my $type = $definition->{$name}->{type};
+
         my $qualified_name = _qualified_name($self->current_module, $name);
         $self->{current_member} = $qualified_name;
 
+        my $definition_reference = $definition->{$name};
+        
         # function declarations
-        if ($type eq 'function') {
+        if ($self->_is_a_funcion($definition_reference)) {
           $self->model->declare_function($self->current_module, $qualified_name);
         }
         # variable declarations
-        elsif ($type eq 'variable') {
+        elsif ($self->_is_a_variable($definition_reference)) {
           $self->model->declare_variable($self->current_module, $qualified_name);
         }
+        
         #FIXME: Implement define treatment (no novo doxyparse identifica como type = "macro definition")
         # define declarations
-        elsif ($type eq 'macro definition') {
+        elsif ($self->_is_macro($definition_reference)) {
           #$self->{current_member} = $qualified_name;
         }
 
@@ -109,31 +116,34 @@ sub feed {
         }
 
         # method LOC
-        if (defined $definition->{$name}->{lines_of_code}) {
+        if ($self->_has_lines_of_code($definition_reference)) {
           $self->model->add_loc($self->current_member, $definition->{$name}->{lines_of_code});
         }
 
         # method parameters
-        if (defined $definition->{$name}->{parameters}) {
+        if ($self->_has_parameters($definition_reference)) {
           $self->model->add_parameters($self->current_member, $definition->{$name}->{parameters});
         }
 
         # method conditional paths
-        if (defined $definition->{$name}->{conditional_paths}) {
+        if ($self->_has_conditional_paths($definition_reference)) {
           $self->model->add_conditional_paths($self->current_member, $definition->{$name}->{conditional_paths});
         }
 
         foreach my $uses (@{ $definition->{$name}->{uses} }) {
           my ($uses_name) = keys %$uses;
-          my $uses_type = $uses->{$uses_name}->{type};
+
+          my $referenced_element_type = $uses->{$uses_name}->{type};
+
           my $defined_in = $uses->{$uses_name}->{defined_in};
+
           my $qualified_uses_name = _qualified_name($defined_in, $uses_name);
           # function calls/uses
-          if ($uses_type eq 'function') {
+          if ($self->_references_function($referenced_element_type)) {
             $self->model->add_call($self->current_member, $qualified_uses_name, 'direct');
           }
           # variable references
-          elsif ($uses_type eq 'variable') {
+          elsif ($self->_references_a_variable($referenced_element_type)) {
             $self->model->add_variable_use($self->current_member, $qualified_uses_name);
           }
 
@@ -141,6 +151,132 @@ sub feed {
       }
     }
   }
+}
+
+sub _references_function {
+    my ($self, $referenced_element_type) = @_;
+
+    if ($referenced_element_type eq 'function') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _references_a_variable {
+    my ($self, $referenced_element_type) = @_;
+
+    if ($referenced_element_type eq 'variable') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_macro {
+    my ($self, $definition) = @_;
+
+    if($definition->{type} eq 'macro definition') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _has_parameters {
+    my ($self, $definition ) = @_;
+
+    if(defined $definition->{parameters}) {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _has_lines_of_code {
+    my ($self, $definition ) = @_;
+
+    if(defined $definition->{lines_of_code}) {
+        return 1;
+    } 
+
+    return 0;
+}
+
+sub _has_conditional_paths {
+    my ($self, $type ) = @_;
+
+    return 0;
+}
+
+sub _is_module_defined {
+    my ($self, $module) = @_;
+
+    if(defined $module) {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_module_mapped_as_hash {
+    my ($self, $module) = @_;
+
+    if(ref($module) eq 'HASH') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _module_has_inheritance {
+    my ($self, $module) = @_;
+
+    if(defined $module->{inherits}) {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_inheritance_multiple {
+    my ($self, $module) = @_;
+
+    if(ref $module->{inherits} eq 'ARRAY') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_module_an_abstract_class {
+    my ($self, $module) = @_;
+
+    if($module->{information} eq 'abstract class') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_a_funcion {
+    my ($self, $definition) = @_;
+
+    if($definition->{type} eq 'function') {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _is_a_variable {
+    my ($self, $definition) = @_;
+
+    if($definition->{type} eq 'variable') {
+        return 1;
+    }
+
+    return 0;
 }
 
 # concat module with symbol (e.g. main::to_string)
