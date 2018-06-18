@@ -9,6 +9,8 @@ use File::Temp qw/ tempfile /;
 use Cwd;
 use YAML::XS;
 
+use Analizo::Extractor::Reference;
+
 sub new {
   my ($package, @options) = @_;
   return bless { files => [], @options }, $package;
@@ -92,18 +94,12 @@ sub _extract_definition_data {
 sub _extract_references_data {
   my ($self, $uses) = @_;
 
+  my ($a) = keys %$uses;
   my ($uses_name) = keys %$uses;
-  my $referenced_element_type = $uses->{$uses_name}->{type};
-  my $defined_in = $uses->{$uses_name}->{defined_in};
-  my $qualified_uses_name = _qualified_name($defined_in, $uses_name);
-  # function calls/uses
-  if ($self->_references_function($referenced_element_type)) {
-    $self->model->add_call($self->current_member, $qualified_uses_name, 'direct');
-  }
-  # variable references
-  elsif ($self->_references_a_variable($referenced_element_type)) {
-    $self->model->add_variable_use($self->current_member, $qualified_uses_name);
-  }
+
+  my $reference = Analizo::Extractor::Reference->new($uses, $self->model, $self->current_member);
+  
+  $reference->extract_references_data();
 }
 
 sub _extract_module_data {
@@ -171,26 +167,6 @@ sub feed {
   }
 }
 
-sub _references_function {
-    my ($self, $referenced_element_type) = @_;
-
-    if ($referenced_element_type eq 'function') {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _references_a_variable {
-    my ($self, $referenced_element_type) = @_;
-
-    if ($referenced_element_type eq 'variable') {
-        return 1;
-    }
-
-    return 0;
-}
-
 sub _is_macro {
     my ($self, $definition) = @_;
 
@@ -222,29 +198,33 @@ sub _has_lines_of_code {
 }
 
 sub _has_conditional_paths {
-    my ($self, $type ) = @_;
+  my ($self, $definition ) = @_;
 
-    return 0;
+  if (defined $definition->{conditional_paths}) {
+    return 1;
+  }
+
+  return 0;
 }
 
 sub _is_module_defined {
-    my ($self, $module) = @_;
+  my ($self, $module) = @_;
 
-    if(defined $module) {
-        return 1;
-    }
+  if(defined $module) {
+      return 1;
+  }
 
-    return 0;
+  return 0;
 }
 
 sub _is_module_mapped_as_hash {
-    my ($self, $module) = @_;
+  my ($self, $module) = @_;
 
-    if(ref($module) eq 'HASH') {
-        return 1;
-    }
-
-    return 0;
+  if(ref($module) eq 'HASH') {
+      return 1;
+  }
+  
+  return 0;
 }
 
 sub _module_has_inheritance {
