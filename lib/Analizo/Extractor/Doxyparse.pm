@@ -9,6 +9,7 @@ use File::Temp qw/ tempfile /;
 use Cwd;
 use YAML::XS;
 
+use Analizo::Extractor::Definition qw(new extract_definition_data);
 use Analizo::Extractor::Reference;
 
 sub new {
@@ -45,62 +46,12 @@ sub _cpp_hack {
 sub _extract_definition_data {
     my ($self, $definition) = @_;
 
-    my ($name) = keys %$definition;
+    my $definition_data = Analizo::Extractor::Definition->new($definition, $self->model, $self->current_module);
 
-    my $qualified_name = _qualified_name($self->current_module, $name);
-    $self->{current_member} = $qualified_name;
-
-    my $definition_reference = $definition->{$name};
-       
-    # function declarations
-    if ($self->_is_a_funcion($definition_reference)) {
-      $self->model->declare_function($self->current_module, $qualified_name);
-    }
-    # variable declarations
-    elsif ($self->_is_a_variable($definition_reference)) {
-      $self->model->declare_variable($self->current_module, $qualified_name);
-    }
-        
-    #FIXME: Implement define treatment (no novo doxyparse identifica como type = "macro definition")
-    # define declarations
-    elsif ($self->_is_macro($definition_reference)) {
-      #$self->{current_member} = $qualified_name;
-    }
-    # public members
-    if (defined $definition->{$name}->{protection}) {
-      my $protection = $definition->{$name}->{protection};
-      $self->model->add_protection($self->current_member, $protection);
-    }
-
-    # method LOC
-    if ($self->_has_lines_of_code($definition_reference)) {
-      $self->model->add_loc($self->current_member, $definition->{$name}->{lines_of_code});
-    }
-    # method parameters
-    if ($self->_has_parameters($definition_reference)) {
-      $self->model->add_parameters($self->current_member, $definition->{$name}->{parameters});
-    }
-
-    # method conditional paths
-    if ($self->_has_conditional_paths($definition_reference)) {
-      $self->model->add_conditional_paths($self->current_member, $definition->{$name}->{conditional_paths});
-    }
-
-    foreach my $uses (@{ $definition->{$name}->{uses} }) {
-      $self->_extract_references_data($uses);
-    }
+    $definition_data->extract_definition_data();
 }
 
-sub _extract_references_data {
-  my ($self, $uses) = @_;
 
-  my ($a) = keys %$uses;
-  my ($uses_name) = keys %$uses;
-
-  my $reference = Analizo::Extractor::Reference->new($uses, $self->model, $self->current_member);
-  
-  $reference->extract_references_data();
-}
 
 sub _extract_module_data {
   my ($self, $yaml, $full_filename, $module) = @_;
@@ -167,46 +118,6 @@ sub feed {
   }
 }
 
-sub _is_macro {
-    my ($self, $definition) = @_;
-
-    if($definition->{type} eq 'macro definition') {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _has_parameters {
-    my ($self, $definition ) = @_;
-
-    if(defined $definition->{parameters}) {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _has_lines_of_code {
-    my ($self, $definition ) = @_;
-
-    if(defined $definition->{lines_of_code}) {
-        return 1;
-    } 
-
-    return 0;
-}
-
-sub _has_conditional_paths {
-  my ($self, $definition ) = @_;
-
-  if (defined $definition->{conditional_paths}) {
-    return 1;
-  }
-
-  return 0;
-}
-
 sub _is_module_defined {
   my ($self, $module) = @_;
 
@@ -251,26 +162,6 @@ sub _is_module_an_abstract_class {
     my ($self, $module) = @_;
 
     if($module->{information} eq 'abstract class') {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _is_a_funcion {
-    my ($self, $definition) = @_;
-
-    if($definition->{type} eq 'function') {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _is_a_variable {
-    my ($self, $definition) = @_;
-
-    if($definition->{type} eq 'variable') {
         return 1;
     }
 

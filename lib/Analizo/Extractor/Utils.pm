@@ -2,6 +2,10 @@ package Analizo::Extractor::Utils;
 
 use strict;
 use warnings;
+use Exporter qw(import);
+our @EXPORT = qw(add qualified_name);
+
+
 
 # discard file suffix (e.g. .c or .h)
 sub file_to_module {
