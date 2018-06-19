@@ -195,19 +195,23 @@ sub graph {
   my $graph = Graph->new;
   $graph->set_graph_attribute('name', 'graph');
   foreach my $module (keys %{ $self->{files}}) {
+    print "module: " . $module . "\n";
     my $file = _group_files(@{ $self->files($module) });
+    print "file: " . $file . "\n";
     $graph->add_vertex($file);
   }
   foreach my $caller (keys %{$self->calls}) {
     my $calling_file = $self->_function_to_file($caller);
     next unless $calling_file;
     $calling_file = _group_files(@{$calling_file});
+    print "calling_file: " . $calling_file . "\n";
     $graph->add_vertex($calling_file);
     foreach my $callee (keys %{$self->calls->{$caller}}) {
       my $called_file = $self->_function_to_file($callee);
       next unless ($calling_file && $called_file);
       $called_file = _group_files(@{$called_file});
       next if ($calling_file eq $called_file);
+      print "caller-called: " . $calling_file . "->" . $called_file . "\n";
       $graph->add_edge($calling_file, $called_file);
     }
   }
@@ -215,6 +219,7 @@ sub graph {
     my $subclass_file = $self->files($subclass);
     next unless $subclass_file;
     $subclass_file = _group_files(@{$subclass_file});
+    print "subclass_file: " . $subclass_file . "\n";
     $graph->add_vertex($subclass_file);
     foreach my $superclass ($self->inheritance($subclass)) {
       $self->_recursive_children($subclass_file, $superclass, $graph);
@@ -222,6 +227,9 @@ sub graph {
   }
 
   $self->{graph} = $graph;
+  print "\nGGGGGGGGGGGGGGGGGG\n";
+  print $self->{graph} = $graph;
+  print "\nGGGGGGGGGGGGGGGGGG\n";
   $graph;
 }
 
@@ -232,6 +240,7 @@ sub _recursive_children {
   return unless $superclass_file;
   $superclass_file = _group_files(@{$superclass_file});
 
+  print "sub-super: " . $subclass_file . "->" . $superclass_file . "\n";
   $graph->add_edge($subclass_file, $superclass_file);
 
   foreach my $super_uper_class ($self->inheritance($superclass)) {
@@ -241,6 +250,7 @@ sub _recursive_children {
 
 sub _function_to_file {
   my ($self, $function) = @_;
+  return unless exists $self->members->{$function};
   my $module = $self->members->{$function};
   $self->{files}->{$module};
 }

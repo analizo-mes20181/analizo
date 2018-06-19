@@ -47,9 +47,26 @@ sub description {
 
 sub calculate {
   my ($self, $module) = @_;
+
   $self->analized_module($module);
 
-  return $self->model->graph->in_degree($module);
+  print "\n-------analized_module------\n";
+  print $module;
+  print "\n--------------\n";
+
+  $module = $self->model->{files}->{$module};
+
+  print "\n______module_in_file______\n";
+  print @{$module};
+  print "\n_____________\n";
+
+  (my $file = @{$module}[0] ) =~ s/\.[^.]+$//;
+
+  print "\n=====module_withou_extension====\n";
+  print $file;
+  print "\n===========\n";
+
+  return $self->model->graph->in_degree($file) ? $self->model->graph->in_degree($file) : 0;
 }
 
 1;
