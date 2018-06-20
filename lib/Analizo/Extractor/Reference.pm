@@ -2,15 +2,20 @@ package Analizo::Extractor::Reference;
 
 use strict;
 use warnings;
-use Analizo::Extractor::Utils;
+
+use Analizo::Extractor::Utils qw(qualified_name);
+
+use base qw(Class::Accessor::Fast);
+
+__PACKAGE__->mk_accessors(qw(uses model current_member));
 
 sub new {
   my $class = shift;
 
   my $self = {
-      _uses => shift,
-      _model => shift,
-      _current_member => shift,
+      uses => shift,
+      model => shift,
+      current_member => shift,
   };
 
   bless $self, $class;
@@ -21,14 +26,15 @@ sub new {
 sub extract_references_data {
   my ($self) = @_;
 
-  my ($uses) = $self->{_uses};
+  my ($uses) = $self->uses;
 
   my ($uses_name) = keys %$uses;
 
-  my $referenced_element_type = $self->{_uses}->{$uses_name}->{type};
+  my $referenced_element_type = $self->uses->{$uses_name}->{type};
 
-  my $defined_in = $self->{_uses}->{$uses_name}->{defined_in};
-  my $qualified_uses_name = Analizo::Extractor::Utils::qualified_name($defined_in, $uses_name);
+  my $defined_in = $self->uses->{$uses_name}->{defined_in};
+  
+  my $qualified_uses_name = qualified_name($defined_in, $uses_name);
   
   if ($self->_references_function($referenced_element_type)) {
     $self->_add_function_reference($qualified_uses_name);
@@ -40,13 +46,13 @@ sub extract_references_data {
 sub _add_function_reference {
   my ($self, $qualified_uses_name) = @_;
 
-  $self->{_model}->add_call($self->{_current_member}, $qualified_uses_name, 'direct');
+  $self->model->add_call($self->current_member, $qualified_uses_name, 'direct');
 }
 
 sub _add_variable_reference {
   my ($self, $qualified_uses_name) = @_;
 
-  $self->{_model}->add_variable_use($self->{_current_member}, $qualified_uses_name);
+  $self->model->add_variable_use($self->current_member, $qualified_uses_name);
 }
 
 sub _references_function {
