@@ -2,7 +2,13 @@ package Analizo::Extractor::Module;
 
 use strict;
 use warnings;
+
+use base qw(Class::Accessor::Fast);
+
 use Analizo::Extractor::Utils qw(file_to_module);
+use Analizo::Extractor::Definition;
+
+__PACKAGE__->mk_accessors(qw(current_module current_member));
 
 sub new {
   my $class = shift;
@@ -50,7 +56,7 @@ sub extract_module_data {
   next if $self->_is_module_defined($module_reference) && 
     not $self->_is_module_mapped_as_hash($module_reference);
   
-  $self->{_current_module} = ($modulename);
+  $self->{current_module} = ($modulename);
 
   $self->_cpp_hack($modulename);
 
@@ -58,19 +64,19 @@ sub extract_module_data {
   if ($self->_module_has_inheritance($module_reference)) {
     if ($self->_is_inheritance_multiple($module_reference)) {
       foreach my $inherits (@{ $self->{_yaml}->{$self->{_full_filename}}->{$self->{_module}}->{inherits} }) {
-         $self->{_model}->add_inheritance( $self->{_current_module}, $inherits);
+         $self->{_model}->add_inheritance( $self->{current_module}, $inherits);
       }
     }
     else {
       my $inherits = $self->{_yaml}->{$self->{_full_filename}}->{$self->{_module}}->{inherits};
-       $self->{_model}->add_inheritance( $self->{_current_module}, $inherits);
+       $self->{_model}->add_inheritance( $self->{current_module}, $inherits);
     }
   }
 
   # abstract class
   if (defined $self->{_yaml}->{$self->{_full_filename}}->{$self->{_module}}->{information}) {
     if ($self->_is_module_an_abstract_class($module_reference)) {
-      $self->{_model}->add_abstract_class($self->{_current_module});
+      $self->{_model}->add_abstract_class($self->{current_module});
     }
   }
 
@@ -82,11 +88,11 @@ sub extract_module_data {
 sub _extract_definition_data {
     my ($self, $definition) = @_;
 
-    my $definition_data = Analizo::Extractor::Definition->new($definition,  $self->{_model},  $self->{_current_module});
+    my $definition_data = Analizo::Extractor::Definition->new($definition,  $self->{_model},  $self->{current_module});
 
     $definition_data->extract_definition_data();
     
-    $self->{current_member} = $definition_data->{_current_member};
+    $self->current_member($definition_data->{_current_member});
 }
 
 sub _is_module_defined {

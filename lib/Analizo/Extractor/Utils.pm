@@ -3,7 +3,7 @@ package Analizo::Extractor::Utils;
 use strict;
 use warnings;
 use Exporter qw(import);
-our @EXPORT = qw(add qualified_name);
+our @EXPORT = qw(file_to_module qualified_name);
 
 
 

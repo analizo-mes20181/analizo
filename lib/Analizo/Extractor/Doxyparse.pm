@@ -9,7 +9,7 @@ use File::Temp qw/ tempfile /;
 use Cwd;
 use YAML::XS;
 
-use Analizo::Extractor::Definition qw(new extract_definition_data);
+use Analizo::Extractor::Module;
 
 sub new {
   my ($package, @options) = @_;
@@ -21,72 +21,15 @@ sub _add_file {
   push(@{$self->{files}}, $file);
 }
 
-sub _cpp_hack {
-  my ($self, $module) = @_;
-  my $current = $self->current_file;
-  if (defined($current) && $current =~ /^(.*)\.(h|hpp)$/) {
-    my $prefix = $1;
-    # look for a previously added .cpp/.cc/etc
-    my @implementations = grep { /^$prefix\.(cpp|cxx|cc)$/ } @{$self->{files}};
-    foreach my $file (@implementations) {
-      $self->model->declare_module($module, $file);
-    }
-  }
-  if (defined($current) && $current =~ /^(.*)\.(cpp|cxx|cc)$/) {
-    my $prefix = $1;
-    # look for a previously added .h/.hpp/etc
-    my @implementations = grep { /^$prefix\.(h|hpp)$/ } @{$self->{files}};
-    foreach my $file (@implementations) {
-      $self->model->declare_module($module, $file);
-    }
-  }
-}
-
-sub _extract_definition_data {
-    my ($self, $definition) = @_;
-
-    my $definition_data = Analizo::Extractor::Definition->new($definition, $self->model, $self->current_module);
-
-    $definition_data->extract_definition_data();
-    
-    $self->{current_member} = $definition_data->{_current_member};
-}
-
 sub _extract_module_data {
   my ($self, $yaml, $full_filename, $module) = @_;
 
-  my $modulename = _file_to_module($module);
+  my $module_data = Analizo::Extractor::Module->new($yaml, $full_filename, $module, $self->current_file, $self->model);
 
-  my $module_reference = $yaml->{$full_filename}->{$module};
+  $module_data->extract_module_data();
 
-  next if $self->_is_module_defined($module_reference) && 
-    not $self->_is_module_mapped_as_hash($module_reference);
-  $self->current_module($modulename);
-  $self->_cpp_hack($modulename);
-
-  # inheritance
-  if ($self->_module_has_inheritance($module_reference)) {
-    if ($self->_is_inheritance_multiple($module_reference)) {
-      foreach my $inherits (@{ $yaml->{$full_filename}->{$module}->{inherits} }) {
-        $self->model->add_inheritance($self->current_module, $inherits);
-      }
-    }
-    else {
-      my $inherits = $yaml->{$full_filename}->{$module}->{inherits};
-      $self->model->add_inheritance($self->current_module, $inherits);
-    }
-  }
-
-  # abstract class
-  if (defined $yaml->{$full_filename}->{$module}->{information}) {
-    if ($self->_is_module_an_abstract_class($module_reference)) {
-      $self->model->add_abstract_class($self->current_module);
-    }
-  }
-
-  foreach my $definition (@{$yaml->{$full_filename}->{$module}->{defines}}) {
-      $self->_extract_definition_data($definition);
-  }
+  $self->current_module($module_data->current_module);
+  $self->{current_member} = $module_data->current_member;
 }
 
 sub _extract_file_data {
@@ -107,7 +50,6 @@ sub feed {
     die $!;
   }
 
-
   foreach my $full_filename (sort keys %$yaml) {
 
     # current file declaration
@@ -118,70 +60,6 @@ sub feed {
     $self->_extract_file_data($yaml, $full_filename);
 
   }
-}
-
-sub _is_module_defined {
-  my ($self, $module) = @_;
-
-  if(defined $module) {
-      return 1;
-  }
-
-  return 0;
-}
-
-sub _is_module_mapped_as_hash {
-  my ($self, $module) = @_;
-
-  if(ref($module) eq 'HASH') {
-      return 1;
-  }
-  
-  return 0;
-}
-
-sub _module_has_inheritance {
-    my ($self, $module) = @_;
-
-    if(defined $module->{inherits}) {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _is_inheritance_multiple {
-    my ($self, $module) = @_;
-
-    if(ref $module->{inherits} eq 'ARRAY') {
-        return 1;
-    }
-
-    return 0;
-}
-
-sub _is_module_an_abstract_class {
-    my ($self, $module) = @_;
-
-    if($module->{information} eq 'abstract class') {
-        return 1;
-    }
-
-    return 0;
-}
-
-# concat module with symbol (e.g. main::to_string)
-sub _qualified_name {
-  my ($file, $symbol) = @_;
-  _file_to_module($file) . '::' . $symbol;
-}
-
-# discard file suffix (e.g. .c or .h)
-sub _file_to_module {
-  my ($filename) = @_;
-  $filename ||= 'unknown';
-  $filename =~ s/\.\w+$//;
-  return $filename;
 }
 
 sub _strip_current_directory {
