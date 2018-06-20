@@ -24,7 +24,7 @@ sub _add_file {
 sub _extract_module_data {
   my ($self, $yaml, $full_filename, $module) = @_;
 
-  my $module_data = Analizo::Extractor::Module->new($yaml, $full_filename, $module, $self->current_file, $self->model);
+  my $module_data = Analizo::Extractor::Module->new($yaml, $full_filename, $module, $self->current_file, $self->model, $self->{files});
 
   $module_data->extract_module_data();
 
@@ -58,7 +58,6 @@ sub feed {
     $self->_add_file($file);
 
     $self->_extract_file_data($yaml, $full_filename);
-
   }
 }
 
