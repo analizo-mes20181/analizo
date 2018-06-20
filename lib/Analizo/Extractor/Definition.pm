@@ -27,19 +27,20 @@ sub extract_definition_data {
   my ($name) = keys %$definition;
 
   my $qualified_name = qualified_name($self->{_current_module}, $name);
-  
+
   $self->{_current_member} = $qualified_name;
 
   my $definition_reference = $definition->{$name};
        
   # function declarations
   if ($self->_is_a_funcion($definition_reference)) {
-    $self->{_model}->declare_function($self->{_current_module}, $qualified_name);
+    
+    $self->{_model}->declare_function($self->{_current_module}, $self->{_current_member});
   }
   
   # variable declarations
   elsif ($self->_is_a_variable($definition_reference)) {
-    $self->{_model}->declare_variable($self->{_current_module}, $qualified_name);
+    $self->{_model}->declare_variable($self->{_current_module}, $self->{_current_member});
   }
         
   #FIXME: Implement define treatment (no novo doxyparse identifica como type = "macro definition")
@@ -48,34 +49,34 @@ sub extract_definition_data {
     #$self->{current_member} = $qualified_name;
   }
   # public members
-  if (defined $definition->{$name}->{protection}) {
-    my $protection = $definition->{$name}->{protection};
-    $self->{_model}->add_protection($self->{_current_module}, $protection);
+  if (defined $definition_reference->{protection}) {
+    my $protection = $definition_reference->{protection};
+    $self->{_model}->add_protection($self->{_current_member}, $protection);
   }
 
   # method LOC
   if ($self->_has_lines_of_code($definition_reference)) {
-    $self->{_model}->add_loc($self->{_current_module}, $definition->{$name}->{lines_of_code});
+    $self->{_model}->add_loc($self->{_current_member}, $definition_reference->{lines_of_code});
   }
   # method parameters
   if ($self->_has_parameters($definition_reference)) {
-    $self->{_model}->add_parameters($self->{_current_module}, $definition->{$name}->{parameters});
+    $self->{_model}->add_parameters($self->{_current_member}, $definition_reference->{parameters});
   }
 
   # method conditional paths
   if ($self->_has_conditional_paths($definition_reference)) {
-    $self->{_model}->add_conditional_paths($self->{_current_module}, $definition->{$name}->{conditional_paths});
+    $self->{_model}->add_conditional_paths($self->{_current_member}, $definition_reference->{conditional_paths});
   }
 
-  foreach my $uses (@{ $definition->{$name}->{uses} }) {
+  foreach my $uses (@{ $definition_reference->{uses} }) {
     $self->_extract_references_data($uses);
   }
 }
 
 sub _is_macro {
-    my ($self) = @_;
+    my ($self, $definition) = @_;
 
-    if($self->{_definition}->{type} eq 'macro definition') {
+    if($definition->{type} eq 'macro definition') {
         return 1;
     }
 
@@ -83,9 +84,9 @@ sub _is_macro {
 }
 
 sub _has_parameters {
-    my ($self) = @_;
+    my ($self, $definition) = @_;
 
-    if(defined $self->{_definition}->{parameters}) {
+    if(defined $definition->{parameters}) {
         return 1;
     }
 
@@ -93,9 +94,9 @@ sub _has_parameters {
 }
 
 sub _has_lines_of_code {
-    my ($self) = @_;
+    my ($self, $definition) = @_;
 
-    if(defined $self->{_definition}->{lines_of_code}) {
+    if(defined $definition->{lines_of_code}) {
         return 1;
     } 
 
@@ -103,9 +104,11 @@ sub _has_lines_of_code {
 }
 
 sub _has_conditional_paths {
-  my ($self) = @_;
+  my ($self, $definition) = @_;
 
-  if (defined $self->{_definition}->{conditional_paths}) {
+  my $lord = $definition->{conditional_paths};
+
+  if (defined $definition->{conditional_paths}) {
     return 1;
   }
 

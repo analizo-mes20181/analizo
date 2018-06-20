@@ -10,7 +10,6 @@ use Cwd;
 use YAML::XS;
 
 use Analizo::Extractor::Definition qw(new extract_definition_data);
-use Analizo::Extractor::Reference;
 
 sub new {
   my ($package, @options) = @_;
@@ -49,9 +48,9 @@ sub _extract_definition_data {
     my $definition_data = Analizo::Extractor::Definition->new($definition, $self->model, $self->current_module);
 
     $definition_data->extract_definition_data();
+    
+    $self->{current_member} = $definition_data->{_current_member};
 }
-
-
 
 sub _extract_module_data {
   my ($self, $yaml, $full_filename, $module) = @_;
@@ -102,10 +101,13 @@ sub _extract_file_data {
 sub feed {
   my ($self, $doxyparse_output, $line) = @_;
   my $yaml = undef;
+  
   eval { $yaml = Load($doxyparse_output) };
   if ($@) {
     die $!;
   }
+
+
   foreach my $full_filename (sort keys %$yaml) {
 
     # current file declaration
