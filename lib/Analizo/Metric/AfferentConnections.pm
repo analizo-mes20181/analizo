@@ -49,13 +49,13 @@ sub calculate {
   my ($self, $module) = @_;
   $self->analized_module($module);
 
-  my $number_of_caller_modules = $self->_number_of_modules_that_call_module();
-  my $number_of_modules_on_inheritance_tree = $self->_recursive_number_of_children($self->analized_module);
+  my $number_of_caller_modules = $self->_calculate_number_of_modules_that_call_module();
+  my $number_of_modules_on_inheritance_tree = $self->calculate_number_of_children_by_recursion($self->analized_module);
 
   return $number_of_caller_modules + $number_of_modules_on_inheritance_tree;
 }
 
-sub _number_of_modules_that_call_module {
+sub _calculate_number_of_modules_that_call_module {
   my ($self) = @_;
 
   my @seen_modules = ();
@@ -70,43 +70,43 @@ sub _push_member_module_if_it_calls_analized_module {
   my ($self, $caller_member, $seen_modules) = @_;
 
   my $caller_module = $self->model->members->{$caller_member};
-  if($self->_member_calls_analized_module($caller_member, $caller_module)){
+  if($self->check_if_member_calls_module($caller_member, $caller_module)){
     push @{$seen_modules}, $caller_module;
   }
 }
 
-sub _member_calls_analized_module {
+sub check_if_member_calls_module {
   my ($self, $caller_member, $caller_module) = @_;
 
   for my $called_member (keys(%{$self->model->calls->{$caller_member}})) {
     my $called_module = $self->model->members->{$called_member};
-    if($self->_called_module_is_the_analized($called_module, $caller_module)) {
+    if($self->is_called_module_is_the_analized($called_module, $caller_module)) {
         return 1;
     }
   }
   return 0;
 }
 
-sub _called_module_is_the_analized {
+sub is_called_module_is_the_analized {
   my ($self, $called_module, $caller_module) = @_;
   return ($caller_module && $called_module) && $caller_module ne $called_module && $called_module eq $self->analized_module;
 }
 
-sub _recursive_number_of_children {
+sub calculate_number_of_children_by_recursion {
   my ($self, $module) = @_;
 
   my $number_of_children = 0;
 
   for my $other_module ($self->model->module_names){
-    if ($self->_module_parent_of_other($module, $other_module)) {
-      $number_of_children += $self->_recursive_number_of_children($other_module) + 1;
+    if ($self->is_module_parent_of_other($module, $other_module)) {
+      $number_of_children += $self->calculate_number_of_children_by_recursion($other_module) + 1;
     }
   }
 
   return $number_of_children;
 }
 
-sub _module_parent_of_other {
+sub is_module_parent_of_other {
   my ($self, $module, $other_module) = @_;
   return grep {$_ eq $module} $self->model->inheritance($other_module);
 }
