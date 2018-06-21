@@ -193,9 +193,6 @@ sub get_graph {
   my ($self) = @_;
   return $self->{graph} if $self->{graph};
   $self->_build_references_graph;
-  print "\n------\n";
-  print $self->{graph};
-  print "\n------\n";
   return $self->{graph};
 }
 
@@ -219,18 +216,23 @@ sub _add_all_files_as_vertex_on_graph{
 
 sub _add_all_references_between_files_as_edges_on_graph{
   my ($self) = @_;
-  foreach my $function_call (keys %{$self->calls}) {
-    my $calling_file = $self->_function_to_file($function_call);
+  foreach my $current_function_call (keys %{$self->calls}) {
+    my $calling_file = $self->_function_to_file($current_function_call);
     next unless $calling_file;
     $calling_file = _group_files(@{$calling_file});
     $self->{graph}->add_vertex($calling_file);
-    foreach my $callee (keys %{$self->calls->{$function_call}}) {
-      my $called_file = $self->_function_to_file($callee);
-      next unless ($calling_file && $called_file);
-      $called_file = _group_files(@{$called_file});
-      next if ($calling_file eq $called_file);
-      $self->{graph}->add_edge($calling_file, $called_file);
-    }
+    $self->_find_all_files_that_calling_file_refer_in_his_function($calling_file, $current_function_call);
+  }
+}
+
+sub _find_all_files_that_calling_file_refer_in_his_function{
+  my ($self, $calling_file, $current_function_call) = @_;
+  foreach my $call_inside_current_function (keys %{$self->calls->{$current_function_call}}) {
+    my $called_file = $self->_function_to_file($call_inside_current_function);
+    next unless ($calling_file && $called_file);
+    $called_file = _group_files(@{$called_file});
+    next if ($calling_file eq $called_file);
+    $self->{graph}->add_edge($calling_file, $called_file);
   }
 }
 
