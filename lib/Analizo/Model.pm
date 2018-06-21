@@ -195,19 +195,7 @@ sub get_graph {
   $self->{graph} = Graph->new;
   $self->{graph}->set_graph_attribute('name', 'graph');
   $self->_add_all_files_as_vertex_on_graph;
-  foreach my $caller (keys %{$self->calls}) {
-    my $calling_file = $self->_function_to_file($caller);
-    next unless $calling_file;
-    $calling_file = _group_files(@{$calling_file});
-    $self->{graph}->add_vertex($calling_file);
-    foreach my $callee (keys %{$self->calls->{$caller}}) {
-      my $called_file = $self->_function_to_file($callee);
-      next unless ($calling_file && $called_file);
-      $called_file = _group_files(@{$called_file});
-      next if ($calling_file eq $called_file);
-      $self->{graph}->add_edge($calling_file, $called_file);
-    }
-  }
+  $self->_add_all_references_between_files_as_edges_on_graph;
   foreach my $subclass (keys(%{$self->{inheritance}})) {
     my $subclass_file = $self->files($subclass);
     next unless $subclass_file;
@@ -229,6 +217,23 @@ sub _add_all_files_as_vertex_on_graph{
     my $file = $self->files($module);
     my $file_without_extension = _group_files(@{ $file });
     $self->{graph}->add_vertex($file_without_extension);
+  }
+}
+
+sub _add_all_references_between_files_as_edges_on_graph{
+  my ($self) = @_;
+  foreach my $function_call (keys %{$self->calls}) {
+    my $calling_file = $self->_function_to_file($function_call);
+    next unless $calling_file;
+    $calling_file = _group_files(@{$calling_file});
+    $self->{graph}->add_vertex($calling_file);
+    foreach my $callee (keys %{$self->calls->{$function_call}}) {
+      my $called_file = $self->_function_to_file($callee);
+      next unless ($calling_file && $called_file);
+      $called_file = _group_files(@{$called_file});
+      next if ($calling_file eq $called_file);
+      $self->{graph}->add_edge($calling_file, $called_file);
+    }
   }
 }
 
