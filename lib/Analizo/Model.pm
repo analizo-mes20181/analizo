@@ -205,15 +205,7 @@ sub _build_references_graph{
   $self->{graph}->set_graph_attribute('name', 'graph');
   $self->_add_all_files_as_vertex_on_graph;
   $self->_add_all_references_between_files_as_edges_on_graph;
-  foreach my $subclass (keys(%{$self->{inheritance}})) {
-    my $subclass_file = $self->files($subclass);
-    next unless $subclass_file;
-    $subclass_file = _group_files(@{$subclass_file});
-    $self->{graph}->add_vertex($subclass_file);
-    foreach my $superclass ($self->inheritance($subclass)) {
-      $self->_recursive_children($subclass_file, $superclass);
-    }
-  }
+  $self->_add_all_references_from_inheritance_as_edges_on_graph;
 }
 
 sub _add_all_files_as_vertex_on_graph{
@@ -242,7 +234,20 @@ sub _add_all_references_between_files_as_edges_on_graph{
   }
 }
 
-sub _recursive_children {
+sub _add_all_references_from_inheritance_as_edges_on_graph{
+  my ($self) = @_;
+  foreach my $subclass (keys(%{$self->{inheritance}})) {
+    my $subclass_file = $self->files($subclass);
+    next unless $subclass_file;
+    $subclass_file = _group_files(@{$subclass_file});
+    $self->{graph}->add_vertex($subclass_file);
+    foreach my $superclass ($self->inheritance($subclass)) {
+      $self->_find_recursively_references_from_deep_inheritance($subclass_file, $superclass);
+    }
+  }
+}
+
+sub _find_recursively_references_from_deep_inheritance {
   my ($self, $subclass_file, $superclass) = @_;
 
   my $superclass_file = $self->files($superclass);
@@ -252,7 +257,7 @@ sub _recursive_children {
   $self->{graph}->add_edge($subclass_file, $superclass_file);
 
   foreach my $super_uper_class ($self->inheritance($superclass)) {
-    $self->_recursive_children($subclass_file, $super_uper_class);
+    $self->_find_recursively_references_from_deep_inheritance($subclass_file, $super_uper_class);
   }
 }
 
