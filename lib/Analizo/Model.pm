@@ -273,42 +273,61 @@ sub callgraph {
   if ($args{group_by_module}) {
     # listing dependencies grouped by module
     my $modules_dependencies = { };
-    foreach my $caller (sort(keys %{$self->calls})) {
-      foreach my $callee (sort(keys %{$self->calls->{$caller}})) {
-        my $calling_module = $self->_function_to_module($caller);
-        my $called_module = $self->_function_to_module($callee);
-        next unless (defined($calling_module) && defined($called_module) && ($calling_module ne $called_module));
-        _add_dependency($modules_dependencies, $calling_module, $called_module);
-      }
-    }
-    foreach my $subclass (sort(keys(%{$self->{inheritance}}))) {
-      foreach my $superclass ($self->inheritance($subclass)) {
-        _add_dependency($modules_dependencies, $subclass, $superclass);
-      }
-    }
-
-    foreach my $calling_module (sort(keys %{$modules_dependencies})) {
-      foreach my $called_module (sort(keys %{$modules_dependencies->{$calling_module}})) {
-        my $strength = $modules_dependencies->{$calling_module}->{$called_module};
-        $graph->add_edge($calling_module, $called_module);
-        $graph->set_edge_attribute($calling_module, $called_module, 'style', 'solid');
-        $graph->set_edge_attribute($calling_module, $called_module, 'label', $strength);
-      }
-    }
+    $self->_add_dependency_bettween_modules($modules_dependencies);
+    $self->_add_inheritance_dependency($modules_dependencies);
+    $self->_set_vertex_attribute_for_style_label($graph, $modules_dependencies);
 
   } else {
-    # listing raw dependency info
-    foreach my $caller (grep { $self->_include_caller($_, @{$args{omit}}) } sort(keys(%{$self->calls}))) {
-      foreach my $callee (grep { $self->_include_callee($_, $args{include_externals}, @{$args{omit}}) } sort(keys(%{$self->calls->{$caller}}))) {
-        my $style = _reftype_to_style($self->calls->{$caller}->{$callee});
-        $graph->add_edge($caller, $callee);
-        $graph->set_edge_attribute($caller, $callee, 'style', $style);
-        $graph->set_vertex_attribute($caller, 'group', $self->_function_to_module($caller));
-        $graph->set_vertex_attribute($callee, 'group', $self->_function_to_module($callee));
-      }
+    $self->_set_vertex_attribute_for_groups($graph, %args);
+  } 
+  return $graph;
+}
+
+sub _add_dependency_bettween_modules {
+  my ($self, $modules_dependencies) = @_;
+  foreach my $caller (sort(keys %{$self->calls})) {
+    foreach my $callee (sort(keys %{$self->calls->{$caller}})) {
+      my $calling_module = $self->_function_to_module($caller);
+      my $called_module = $self->_function_to_module($callee);
+      next unless (defined($calling_module) && defined($called_module) && ($calling_module ne $called_module));
+      _add_dependency($modules_dependencies, $calling_module, $called_module);
     }
   }
-  return $graph;
+}
+
+sub _add_inheritance_dependency {
+  my ($self, $modules_dependencies) = @_;
+  foreach my $subclass (sort(keys(%{$self->{inheritance}}))) {
+    foreach my $superclass ($self->inheritance($subclass)) {
+      _add_dependency($modules_dependencies, $subclass, $superclass);
+    }
+  }
+}
+
+
+sub _set_vertex_attribute_for_style_label {
+  my ($self, $graph, $modules_dependencies) = @_;
+  foreach my $calling_module (sort(keys %{$modules_dependencies})) {
+    foreach my $called_module (sort(keys %{$modules_dependencies->{$calling_module}})) {
+      my $strength = $modules_dependencies->{$calling_module}->{$called_module};
+      $graph->add_edge($calling_module, $called_module);
+      $graph->set_edge_attribute($calling_module, $called_module, 'style', 'solid');
+      $graph->set_edge_attribute($calling_module, $called_module, 'label', $strength);
+    }
+  }
+}
+
+sub _set_vertex_attribute_for_groups {
+  my ($self, $graph, %args) = @_;
+  foreach my $caller (grep { $self->_include_caller($_, @{$args{omit}}) } sort(keys(%{$self->calls}))) {
+    foreach my $callee (grep { $self->_include_callee($_, $args{include_externals}, @{$args{omit}}) } sort(keys(%{$self->calls->{$caller}}))) {
+      my $style = _reftype_to_style($self->calls->{$caller}->{$callee});
+      $graph->add_edge($caller, $callee);
+      $graph->set_edge_attribute($caller, $callee, 'style', $style);
+      $graph->set_vertex_attribute($caller, 'group', $self->_function_to_module($caller));
+      $graph->set_vertex_attribute($callee, 'group', $self->_function_to_module($callee));
+    }
+  }
 }
 
 sub _file_to_module {
