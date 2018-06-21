@@ -42,20 +42,36 @@ sub filename_matches_filters {
 
 sub apply_filters {
   my ($self, @input) = @_;
+  my @result = ();
+
+  $self->filters(Analizo::FilenameFilter->check_filters()));
+
+  for my $input (@input) {
+    find_filename($input) 
+  }
+  
+  return @result;
+}
+
+sub check_filters {
+    # By default, only look at supported languages
 
   unless ($self->has_filters) {
-    # By default, only look at supported languages
-    $self->filters(Analizo::LanguageFilter->new('all'));
+    $self->filters(new Analizo::LanguageFilter('all'));
   }
+}
 
-  my @result = ();
-  for my $input (@input) {
+sub find_filename(@input)  {
     find(
-      { wanted => sub { push @result, $_ if !-d $_ && $self->filename_matches_filters($_); }, no_chdir => 1 },
+      { wanted => 
+        $self->push_result(), 
+      no_chdir => 1 },
       $input
     );
-  }
-  return @result;
+}
+
+sub push_result {
+    push @result, $_ if !-d $_ && $self->filename_matches_filters($_); }, 
 }
 
 1;
