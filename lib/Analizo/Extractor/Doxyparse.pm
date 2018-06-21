@@ -29,6 +29,7 @@ sub _extract_module_data {
   $module_data->extract_module_data();
 
   $self->current_module($module_data->current_module);
+
   $self->{current_member} = $module_data->current_member;
 }
 
@@ -44,7 +45,7 @@ sub _extract_file_data {
 sub feed {
   my ($self, $doxyparse_output, $line) = @_;
   my $yaml = undef;
-  
+
   eval { $yaml = Load($doxyparse_output) };
   if ($@) {
     die $!;
@@ -54,7 +55,9 @@ sub feed {
 
     # current file declaration
     my $file = _strip_current_directory($full_filename);
+    
     $self->current_file($file);
+
     $self->_add_file($file);
 
     $self->_extract_file_data($yaml, $full_filename);

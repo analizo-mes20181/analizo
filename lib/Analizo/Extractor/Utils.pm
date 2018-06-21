@@ -5,8 +5,6 @@ use warnings;
 use Exporter qw(import);
 our @EXPORT = qw(file_to_module qualified_name);
 
-
-
 # discard file suffix (e.g. .c or .h)
 sub file_to_module {
   my ($filename) = @_;

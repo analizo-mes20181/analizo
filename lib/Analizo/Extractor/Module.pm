@@ -40,13 +40,15 @@ sub _declare_modules_for_cpp {
 sub _declare_hpp_module {
   my ($self) = @_;
 
-  if ($self->current_file =~ /^(.*)\.(cpp|cxx|cc)$/) {
+  my $current = $self->current_file;
+
+  if ($current =~ /^(.*)\.(cpp|cxx|cc)$/) {
     my $prefix = $1;
     
     # look for a previously added .h/.hpp/etc
     my @implementations = grep { /^$prefix\.(h|hpp)$/ } @{$self->{files}};
     foreach my $file (@implementations) {
-      $self->model->declare_module($self->current_module, $self->current_file);
+      $self->model->declare_module($self->current_module, $file);
     }
   }
 }
@@ -54,12 +56,15 @@ sub _declare_hpp_module {
 sub _declare_cpp_module {
   my ($self) = @_;
 
-  if($self->current_file =~ /^(.*)\.(h|hpp)$/) {
+  my $current = $self->current_file;
+
+  if($current =~ /^(.*)\.(h|hpp)$/) {
     my $prefix = $1;
+    
     # look for a previously added .cpp/.cc/etc
     my @implementations = grep { /^$prefix\.(cpp|cxx|cc)$/ } @{$self->{files}};
     foreach my $file (@implementations) {
-      $self->model->declare_module($self->current_module, $self->current_file);
+      $self->model->declare_module($self->current_module, $file);
     }
   }
 }
@@ -81,8 +86,7 @@ sub extract_module_data {
 
   $self->_set_module_direct_reference();
 
-  next if $self->_is_module_defined($self->module_reference) && 
-    not $self->_is_module_mapped_as_hash($self->module_reference);
+  next if $self->_is_module_defined($self->module_reference) && not $self->_is_module_mapped_as_hash($self->module_reference);
   
   $self->_declare_modules_for_cpp();
 
@@ -109,7 +113,11 @@ sub _set_module_direct_reference {
 
   my $module_reference = $self->yaml->{$self->full_filename}->{$self->module};
 
-  $self->module_reference($module_reference);
+  if(defined $module_reference) {
+    $self->module_reference($module_reference);
+  } else {
+    $self->module_reference({});
+  }
 }
 
 sub _add_possible_abstract_classes {
@@ -165,7 +173,7 @@ sub _extract_definition_data {
 
     $definition_data->extract_definition_data();
     
-    $self->current_member($definition_data->{_current_member});
+    $self->current_member($definition_data->current_member);
 }
 
 sub _is_module_defined {
