@@ -194,10 +194,7 @@ sub get_graph {
   return $self->{graph} if $self->{graph};
   $self->{graph} = Graph->new;
   $self->{graph}->set_graph_attribute('name', 'graph');
-  foreach my $module (keys %{ $self->{files}}) {
-    my $file = _group_files(@{ $self->files($module) });
-    $self->{graph}->add_vertex($file);
-  }
+  $self->_add_all_files_as_vertex_on_graph;
   foreach my $caller (keys %{$self->calls}) {
     my $calling_file = $self->_function_to_file($caller);
     next unless $calling_file;
@@ -224,6 +221,15 @@ sub get_graph {
   print $self->{graph};
   print "\n------\n";
   return $self->{graph};
+}
+
+sub _add_all_files_as_vertex_on_graph{
+  my ($self) = @_;
+  foreach my $module (keys %{ $self->{files}}) {
+    my $file = $self->files($module);
+    my $file_without_extension = _group_files(@{ $file });
+    $self->{graph}->add_vertex($file_without_extension);
+  }
 }
 
 sub _recursive_children {
