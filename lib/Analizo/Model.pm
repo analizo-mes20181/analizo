@@ -192,6 +192,15 @@ sub _group_files {
 sub get_graph {
   my ($self) = @_;
   return $self->{graph} if $self->{graph};
+  $self->_build_references_graph;
+  print "\n------\n";
+  print $self->{graph};
+  print "\n------\n";
+  return $self->{graph};
+}
+
+sub _build_references_graph{
+  my ($self) = @_;
   $self->{graph} = Graph->new;
   $self->{graph}->set_graph_attribute('name', 'graph');
   $self->_add_all_files_as_vertex_on_graph;
@@ -205,10 +214,6 @@ sub get_graph {
       $self->_recursive_children($subclass_file, $superclass);
     }
   }
-  print "\n------\n";
-  print $self->{graph};
-  print "\n------\n";
-  return $self->{graph};
 }
 
 sub _add_all_files_as_vertex_on_graph{
