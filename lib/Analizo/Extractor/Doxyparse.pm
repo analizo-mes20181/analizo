@@ -55,7 +55,7 @@ sub feed {
 
     # current file declaration
     my $file = _strip_current_directory($full_filename);
-    
+
     $self->current_file($file);
 
     $self->_add_file($file);

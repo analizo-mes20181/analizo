@@ -86,25 +86,22 @@ sub extract_module_data {
 
   $self->_set_module_direct_reference();
 
-  next if $self->_is_module_defined($self->module_reference) && not $self->_is_module_mapped_as_hash($self->module_reference);
+  next if $self->_is_module_defined($self->module_reference) && 
+    not $self->_is_module_mapped_as_hash($self->module_reference);
   
   $self->_declare_modules_for_cpp();
-
-  # inheritance
   $self->_add_possible_inheritances();
-
-  # abstract class
   $self->_add_possible_abstract_classes();
 
   $self->_extract_module_definitions();
-  
 }
 
 sub _extract_module_definitions {
   my ($self) = @_;
 
   foreach my $definition (@{$self->module_reference->{defines}}) {
-      $self->_extract_definition_data($definition);
+    
+    $self->_extract_definition_data($definition);
   }
 }
 
