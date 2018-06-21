@@ -141,6 +141,7 @@ sub execute {
       $self->share_filters_with($extractor);
       $extractor->process('.');
     }
+    $model->get_graph;
     $self->cache->set($model_cache_key, $model);
   }
   $self->model($model);

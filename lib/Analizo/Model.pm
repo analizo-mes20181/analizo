@@ -192,51 +192,51 @@ sub _group_files {
 sub get_graph {
   my ($self) = @_;
   return $self->{graph} if $self->{graph};
-  my $graph = Graph->new;
-  $graph->set_graph_attribute('name', 'graph');
+  $self->{graph} = Graph->new;
+  $self->{graph}->set_graph_attribute('name', 'graph');
   foreach my $module (keys %{ $self->{files}}) {
     my $file = _group_files(@{ $self->files($module) });
-    $graph->add_vertex($file);
+    $self->{graph}->add_vertex($file);
   }
   foreach my $caller (keys %{$self->calls}) {
     my $calling_file = $self->_function_to_file($caller);
     next unless $calling_file;
     $calling_file = _group_files(@{$calling_file});
-    $graph->add_vertex($calling_file);
+    $self->{graph}->add_vertex($calling_file);
     foreach my $callee (keys %{$self->calls->{$caller}}) {
       my $called_file = $self->_function_to_file($callee);
       next unless ($calling_file && $called_file);
       $called_file = _group_files(@{$called_file});
       next if ($calling_file eq $called_file);
-      $graph->add_edge($calling_file, $called_file);
+      $self->{graph}->add_edge($calling_file, $called_file);
     }
   }
   foreach my $subclass (keys(%{$self->{inheritance}})) {
     my $subclass_file = $self->files($subclass);
     next unless $subclass_file;
     $subclass_file = _group_files(@{$subclass_file});
-    $graph->add_vertex($subclass_file);
+    $self->{graph}->add_vertex($subclass_file);
     foreach my $superclass ($self->inheritance($subclass)) {
-      $self->_recursive_children($subclass_file, $superclass, $graph);
+      $self->_recursive_children($subclass_file, $superclass);
     }
   }
   print "\n------\n";
-  print $graph;
+  print $self->{graph};
   print "\n------\n";
-  $graph;
+  return $self->{graph};
 }
 
 sub _recursive_children {
-  my ($self, $subclass_file, $superclass, $graph) = @_;
+  my ($self, $subclass_file, $superclass) = @_;
 
   my $superclass_file = $self->files($superclass);
   return unless $superclass_file;
   $superclass_file = _group_files(@{$superclass_file});
 
-  $graph->add_edge($subclass_file, $superclass_file);
+  $self->{graph}->add_edge($subclass_file, $superclass_file);
 
   foreach my $super_uper_class ($self->inheritance($superclass)) {
-    $self->_recursive_children($subclass_file, $super_uper_class, $graph);
+    $self->_recursive_children($subclass_file, $super_uper_class);
   }
 }
 
