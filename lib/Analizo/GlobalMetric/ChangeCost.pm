@@ -51,13 +51,14 @@ sub calculate {
   my $rows = scalar @vertices;
   return unless $rows;
   my @fan_out = (0) x $rows;
-  my $n = 0;
-  foreach my $i (@vertices) {
-    foreach my $j (@vertices) {
-      $fan_out[$n] += $reachability_matrix->[0]->get($i, $j);
+  my $path_length = 0;
+
+  foreach my $matrix_row (@vertices) {
+    foreach my $matrix_column (@vertices) {
+      $fan_out[$path_length] += $reachability_matrix->[0]->get($matrix_row, $matrix_column);
     }
-    $fan_out[$n] = $fan_out[$n] / $rows;
-    $n++;
+    $fan_out[$path_length] = $fan_out[$path_length] / $rows;
+    $path_length++;
   }
   sprintf("%0.02f", sum(@fan_out) / $rows);
 }
