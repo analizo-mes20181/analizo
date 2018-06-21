@@ -189,7 +189,7 @@ sub _group_files {
   $file;
 }
 
-sub graph {
+sub get_graph {
   my ($self) = @_;
   return $self->{graph} if $self->{graph};
   my $graph = Graph->new;
@@ -220,6 +220,9 @@ sub graph {
       $self->_recursive_children($subclass_file, $superclass, $graph);
     }
   }
+  print "\n------\n";
+  print $graph;
+  print "\n------\n";
   $graph;
 }
 
@@ -334,4 +337,3 @@ sub _include_callee {
 }
 
 1;
-
